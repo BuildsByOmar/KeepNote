@@ -1,47 +1,56 @@
-import { Tabs } from "expo-router";
-import React from "react";
-import { Platform } from "react-native";
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
 
-import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import TabBarBackground from "@/components/ui/TabBarBackground";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-
-export default function TabLayout() {
+export default function TabsLayout() {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-          },
-          default: {},
-        }),
+        tabBarActiveTintColor: '#3B82F6', // Bleu
+        tabBarInactiveTintColor: isDark ? '#9CA3AF' : '#6B7280',
+        tabBarStyle: {
+          backgroundColor: isDark ? '#000000' : '#FFFFFF',
+          borderTopColor: isDark ? '#1F2937' : '#E5E7EB',
+        },
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: isDark ? '#000000' : '#FFFFFF',
+        },
+        headerTitleStyle: {
+          color: isDark ? '#FFFFFF' : '#000000',
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Notes",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+          title: 'Notes',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="document-text" size={size} color={color} />
           ),
         }}
       />
+      
       <Tabs.Screen
-        name="explore"
+        name="tasks"
         options={{
-          title: "Tasks",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+          title: 'Tâches',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkbox" size={size} color={color} />
+          ),
+        }}
+      />
+      
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Paramètres',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings" size={size} color={color} />
           ),
         }}
       />

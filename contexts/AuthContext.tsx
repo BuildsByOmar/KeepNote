@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { StyleSheet, View, Text } from "react-native";
 
 type User = {
   id: number;
@@ -49,36 +50,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userToken, isLoading, segments, router]);
 
-  useEffect(() => {
-    checkAndRedirect();
-  }, [checkAndRedirect]);
-
+  // Vérification du token et récupération des données utilisateur au démarrage
   useEffect(() => {
     const loadToken = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
         const userData = await AsyncStorage.getItem("userData");
 
-        setUserToken(token);
+        if (token) {
+          // Vérifier la validité du token en effectuant une requête
+          const response = await fetch("YOUR_API_URL/validate-token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ token }),
+          });
 
-        if (userData) {
-          try {
-            const userInfo = JSON.parse(userData);
-            setUser(userInfo);
-          } catch (error) {
-            console.error(error);
-            await signOut();
+          if (response.ok) {
+            setUserToken(token);
+            if (userData) {
+              const userInfo = JSON.parse(userData);
+              setUser(userInfo);
+            }
+          } else {
+            await signOut(); // Si le token est invalide, déconnecter l'utilisateur
           }
+        } else {
+          setUserToken(null);
+          setUser(null);
         }
       } catch (error) {
         console.error(error);
+        await signOut(); // En cas d'erreur, déconnecter l'utilisateur
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Une fois le chargement terminé, mettre à jour l'état
       }
     };
 
     loadToken();
   }, []);
+
+  useEffect(() => {
+    checkAndRedirect();
+  }, [checkAndRedirect]);
 
   const signIn = async (token: string, userData: User) => {
     try {
@@ -87,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserToken(token);
       setUser(userData);
     } catch (error) {
-      console.error(error);
+      console.error("Erreur lors de la connexion:", error);
     }
   };
 
@@ -98,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserToken(null);
       setUser(null);
     } catch (error) {
-      console.error(error);
+      console.error("Erreur lors de la déconnexion:", error);
     }
   };
 
@@ -112,7 +128,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
       }}
     >
-      {children}
+      {isLoading ? (
+        <LoadingScreen /> // Écran de chargement pendant que l'application récupère les informations
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
+
+// Composant pour afficher l'écran de chargement
+function LoadingScreen() {
+  return (
+    <View style={styles.loadingContainer}>
+      <Text>Chargement...</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

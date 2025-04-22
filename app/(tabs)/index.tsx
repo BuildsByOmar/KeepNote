@@ -1,52 +1,55 @@
-import { StyleSheet, Image, Platform, Button } from "react-native";
+import React from 'react';
+import { View, TouchableOpacity, useColorScheme } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import NoteList from '@/components/notes/NoteList';
+import { Ionicons } from '@expo/vector-icons';
+import tw from 'twrnc';
+import { useNotes } from '@/contexts/NotesContext';
 
-import { Collapsible } from "@/components/Collapsible";
-import { ExternalLink } from "@/components/ExternalLink";
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useAuth } from "../_layout";
+export default function NotesScreen() {
+  const router = useRouter();
+  const { fetchNotes } = useNotes();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-export default function Index() {
-  const { user, userToken, signOut } = useAuth();
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }
+  React.useEffect(() => {
+    // Charger les notes au démarrage
+    fetchNotes();
+  }, []);
+
+  // Bouton pour ajouter une nouvelle note
+  const AddNoteButton = () => (
+    <TouchableOpacity
+      style={tw`bg-blue-500 w-14 h-14 rounded-full justify-center items-center shadow-md`}
+      onPress={() => router.push('/notes/create')}
     >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>
-        {user ? `Welcome, ${user.name}!` : "Welcome to your new app!"}
-      </ThemedText>
-      <ThemedText>
-        {userToken ? "You are authenticated." : "You are not authenticated."}
-      </ThemedText>
-      <ThemedText>
-        <Button title="Sign Out" onPress={signOut} />
-      </ThemedText>
-    </ParallaxScrollView>
+      <Ionicons name="add" size={30} color="white" />
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={tw.style(`flex-1 relative`, isDark ? 'bg-black' : 'bg-gray-100')}>
+      <Stack.Screen
+        options={{
+          title: 'Mes Notes',
+          headerStyle: {
+            backgroundColor: isDark ? '#000000' : '#FFFFFF',
+          },
+          headerTitleStyle: {
+            color: isDark ? '#FFFFFF' : '#000000',
+            fontWeight: 'bold',
+          },
+          headerShadowVisible: false,
+        }}
+      />
+
+      {/* Liste des notes */}
+      <NoteList />
+
+      {/* Bouton flottant pour ajouter une note */}
+      <View style={tw`absolute bottom-6 right-6`}>
+        <AddNoteButton />
+      </View>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  headerImage: {
-    color: "#808080",
-    bottom: -90,
-    left: -35,
-    position: "absolute",
-  },
-  titleContainer: {
-    flexDirection: "row",
-    gap: 8,
-  },
-});

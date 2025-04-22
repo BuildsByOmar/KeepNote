@@ -6,7 +6,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Button,
+  useColorScheme,
 } from "react-native";
 import tw from "twrnc";
 import { StatusBar } from "expo-status-bar";
@@ -25,81 +25,53 @@ export default function QRScanScreen() {
   const { signIn } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
+  const theme = useColorScheme();
+  const isDark = theme === "dark";
 
-  const handleBarCodeScanned = async ({
-    type,
-    data,
-  }: BarcodeScanningResult) => {
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned || loading) return;
 
     setScanned(true);
     setLoading(true);
-    setDebug(`QR Code scanné: ${data.substring(0, 50)}...\n`);
+    setDebug(`🔍 QR Code détecté : ${data.substring(0, 50)}...\n`);
 
-    // Vérifier si le QR code contient un URL avec le token
     if (!data.includes("/auth/qr-login/")) {
-      setDebug((prev) => prev + "Format de QR code invalide!\n");
-      Alert.alert(
-        "QR Code invalide",
-        "Ce QR code n'est pas valide pour l'authentification."
-      );
-      setLoading(false);
+      setDebug((prev) => prev + "❌ Format de QR code invalide !\n");
+      Alert.alert("QR Code invalide", "Ce QR code n'est pas autorisé.");
       setScanned(false);
+      setLoading(false);
       return;
     }
 
     try {
-      setDebug((prev) => prev + `Tentative de connexion avec le QR code...\n`);
+      setDebug((prev) => prev + `⏳ Tentative de connexion...\n`);
 
-      // Faire la requête à l'API
       const response = await fetch(data, {
         method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       });
 
-      setDebug((prev) => prev + `Statut HTTP: ${response.status}\n`);
-
-      // Récupérer d'abord la réponse en texte brut
       const rawText = await response.text();
-      setDebug(
-        (prev) =>
-          prev +
-          `Réponse brute (50 premiers caractères): ${rawText.substring(
-            0,
-            50
-          )}...\n`
-      );
+      setDebug((prev) => prev + `📨 Réponse : ${rawText.substring(0, 50)}...\n`);
 
-      let responseData;
+      let json;
       try {
-        // Essayer de parser le texte en JSON
-        responseData = JSON.parse(rawText);
-      } catch (parseError) {
-        setDebug((prev) => prev + `Erreur de parsing JSON: ${parseError}\n`);
-        throw new Error("Format de réponse invalide");
+        json = JSON.parse(rawText);
+      } catch (err) {
+        setDebug((prev) => prev + "⚠️ Erreur JSON : " + err + "\n");
+        throw new Error("Réponse mal formatée");
       }
 
       if (!response.ok) {
-        const errorMessage =
-          responseData.message || "Erreur lors de l'authentification";
-        setDebug((prev) => prev + `Erreur API: ${errorMessage}\n`);
-        throw new Error(errorMessage);
+        throw new Error(json.message || "Erreur d'authentification");
       }
 
-      setDebug((prev) => prev + "Authentification par QR code réussie!\n");
-
-      // Connexion avec les données reçues
-      await signIn(responseData.access_token, responseData.user);
-
-      // La redirection sera gérée par le contexte d'authentification
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Une erreur est survenue";
-
-      setDebug((prev) => prev + `ERREUR: ${errorMessage}\n`);
-      Alert.alert("Erreur d'authentification", errorMessage);
+      setDebug((prev) => prev + "✅ Authentification réussie\n");
+      await signIn(json.access_token, json.user);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      setDebug((prev) => prev + `🛑 ${msg}\n`);
+      Alert.alert("Erreur", msg);
       setScanned(false);
     } finally {
       setLoading(false);
@@ -112,104 +84,104 @@ export default function QRScanScreen() {
   };
 
   if (!permission) {
-    // Les permissions de caméra sont en cours de chargement
     return (
-      <View style={tw`flex-1 bg-white justify-center p-5`}>
-        <Text>Vérification des permissions caméra...</Text>
+      <View style={tw`flex-1 justify-center items-center p-5 ${isDark ? "bg-black" : "bg-white"}`}>
+        <Text style={tw`text-base ${isDark ? "text-white" : "text-black"}`}>
+          Chargement des permissions caméra...
+        </Text>
       </View>
     );
   }
 
   if (!permission.granted) {
-    // Les permissions de caméra ne sont pas accordées
     return (
-      <View style={tw`flex-1 bg-white justify-center p-5`}>
-        <Text style={tw`text-red-500 text-lg text-center`}>
-          Nous avons besoin de votre permission pour utiliser la caméra
+      <View style={tw`flex-1 justify-center items-center px-6 ${isDark ? "bg-black" : "bg-white"}`}>
+        <Text style={tw`text-lg text-center mb-4 ${isDark ? "text-red-400" : "text-red-600"}`}>
+          ⚠️ Permission caméra requise
         </Text>
-        <Button title="Autoriser l'accès" onPress={requestPermission} />
         <TouchableOpacity
-          style={tw`bg-gray-500 p-3 rounded-md mt-3`}
-          onPress={() => router.back()}
+          onPress={requestPermission}
+          style={tw`bg-blue-600 px-6 py-3 rounded-full mb-4`}
         >
-          <Text style={tw`text-white text-center font-bold text-base`}>
-            Retour
-          </Text>
+          <Text style={tw`text-white font-bold`}>Autoriser l'accès caméra</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={tw`bg-gray-500 px-6 py-3 rounded-full`}
+        >
+          <Text style={tw`text-white font-bold`}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={tw`flex-1 bg-white justify-center p-5`}>
-      <StatusBar style="light" />
+    <View style={tw`flex-1 ${isDark ? "bg-black" : "bg-white"}`}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {!scanned && (
-        <View style={tw`flex-1 overflow-hidden`}>
-          <CameraView
-            ref={cameraRef}
-            style={tw`flex-1`}
-            facing="back"
-            barcodeScannerSettings={{
-              barcodeTypes: ["qr"],
-            }}
-            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-          >
-            <View style={tw`flex-1 justify-center items-center`}>
-              <View
-                style={tw`w-64 h-64 border-2 border-white rounded-2xl bg-transparent`}
-              />
-            </View>
+        <CameraView
+          ref={cameraRef}
+          style={tw`flex-1`}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onBarcodeScanned={handleBarCodeScanned}
+        >
+          <View style={tw`flex-1 justify-center items-center`}>
             <View
-              style={tw`absolute bottom-20 left-0 right-0 items-center px-5`}
+              style={tw`w-64 h-64 border-4 border-blue-400 rounded-2xl bg-transparent`}
+            />
+          </View>
+          <View style={tw`absolute bottom-20 w-full items-center px-4`}>
+            <Text
+              style={tw`text-white text-center text-lg bg-black bg-opacity-60 p-3 rounded-xl`}
             >
-              <Text
-                style={tw`text-white text-lg text-center bg-black bg-opacity-70 p-3 rounded-lg`}
-              >
-                Placez le QR code dans le cadre
-              </Text>
-            </View>
-          </CameraView>
-        </View>
+              Placez le QR Code dans le cadre pour vous connecter
+            </Text>
+          </View>
+        </CameraView>
       )}
 
       {(scanned || debug) && (
-        <ScrollView style={tw`flex-1 bg-white`} contentContainerStyle={tw`p-5`}>
-          <Text style={tw`text-2xl font-bold mb-5 text-center`}>
-            Scan QR code
+        <ScrollView style={tw`flex-1`} contentContainerStyle={tw`p-6`}>
+          <Text style={tw`text-2xl font-bold text-center mb-4 ${isDark ? "text-white" : "text-black"}`}>
+            🔍 Lecture du QR Code
           </Text>
 
           {loading && (
-            <View style={tw`items-center justify-center my-5`}>
-              <ActivityIndicator size="large" color="#007BFF" />
-              <Text style={tw`mt-2.5 text-base`}>Connexion en cours...</Text>
+            <View style={tw`items-center justify-center my-4`}>
+              <ActivityIndicator size="large" color="#2563eb" />
+              <Text style={tw`mt-2 text-base ${isDark ? "text-gray-200" : "text-black"}`}>
+                Connexion en cours...
+              </Text>
             </View>
           )}
 
-          {debug ? (
-            <View style={tw`mt-5 p-2.5 bg-gray-100 rounded-md`}>
-              <Text style={tw`font-bold mb-1`}>Informations de débogage:</Text>
-              <Text style={tw`font-mono text-xs`}>{debug}</Text>
+          {debug && (
+            <View style={tw`bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mt-4`}>
+              <Text style={tw`font-bold mb-1 ${isDark ? "text-white" : "text-black"}`}>🛠️ Débogage :</Text>
+              <Text style={tw`font-mono text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                {debug}
+              </Text>
             </View>
-          ) : null}
+          )}
 
           {scanned && !loading && (
-            <View style={tw`mt-5`}>
+            <View style={tw`mt-6`}>
               <TouchableOpacity
-                style={tw`bg-blue-500 p-3 rounded-md mb-3`}
                 onPress={handleRetry}
+                style={tw`bg-blue-600 p-3 rounded-lg mb-4`}
               >
-                <Text style={tw`text-white text-center font-bold text-base`}>
-                  Scanner un autre QR code
+                <Text style={tw`text-white text-center font-bold`}>
+                  🔄 Scanner un autre QR Code
                 </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={tw`bg-gray-500 p-3 rounded-md`}
                 onPress={() => router.back()}
+                style={tw`bg-gray-600 p-3 rounded-lg`}
               >
-                <Text style={tw`text-white text-center font-bold text-base`}>
-                  Retour
+                <Text style={tw`text-white text-center font-bold`}>
+                  ⬅️ Retour
                 </Text>
               </TouchableOpacity>
             </View>
