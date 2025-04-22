@@ -5,7 +5,6 @@ import {
   TouchableOpacity, 
   Text, 
   ScrollView, 
-  useColorScheme,
   ActivityIndicator,
   Alert,
   Animated
@@ -13,6 +12,7 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotes } from '@/contexts/NotesContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import tw from 'twrnc';
 
 export default function NoteDetailScreen() {
@@ -27,9 +27,8 @@ export default function NoteDetailScreen() {
   const [originalCategories, setOriginalCategories] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(edit === 'true');
   const { getNote, updateNote, deleteNote, categories, isLoading } = useNotes();
+  const { isDark } = useTheme();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   // Animation de fondu lors du passage en mode édition/lecture
@@ -81,13 +80,19 @@ export default function NoteDetailScreen() {
     }
 
     try {
+      console.log("Sauvegarde avec catégories:", selectedCategories);
+      
       const success = await updateNote(noteId, title, content, selectedCategories);
       if (success) {
-        // Mettre à jour les valeurs originales
+        // Mettre à jour les valeurs originales sans attendre un re-render
         setOriginalTitle(title);
         setOriginalContent(content);
         setOriginalCategories([...selectedCategories]);
-        setIsEditing(false); // Retour au mode lecture
+        
+        // Ajouter un petit délai pour garantir que l'état est bien mis à jour
+        setTimeout(() => {
+          setIsEditing(false); // Retour au mode lecture
+        }, 300);
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour:', error);
@@ -158,55 +163,84 @@ export default function NoteDetailScreen() {
     return category ? category.color : '#6B7280';
   };
 
+  // Obtenir un titre formaté pour l'affichage dans la barre de navigation
+  const getFormattedTitle = () => {
+    if (!title) return 'Sans titre';
+    // Limiter la longueur du titre pour l'affichage dans la barre de navigation
+    return title.length > 20 ? title.substring(0, 20) + '...' : title;
+  };
+
   return (
-    <View style={tw.style(`flex-1`, isDark ? 'bg-black' : 'bg-white')}>
+    <View style={tw.style(`flex-1`, isDark ? 'bg-black' : 'bg-gray-100')}>
       <Stack.Screen
         options={{
-          title: isEditing ? 'Modifier la note' : 'Détails de la note',
+          // Afficher le titre de la note en mode lecture, sinon "Modifier la note"
+          title: isEditing ? 'Modifier la note' : getFormattedTitle(),
           headerStyle: {
-            backgroundColor: isDark ? '#000000' : '#FFFFFF',
+            backgroundColor: isEditing 
+              ? '#3B82F6' // Bleu pour le mode édition
+              : (isDark ? '#000000' : '#FFFFFF'),
           },
           headerTitleStyle: {
-            color: isDark ? '#FFFFFF' : '#000000',
+            color: isEditing 
+              ? 'white' 
+              : (isDark ? '#FFFFFF' : '#000000'),
+            fontWeight: isEditing ? 'bold' : 'normal',
           },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => {
-              if (isEditing) {
-                handleCancel();
-              } else {
-                router.back();
-              }
-            }}>
-              <Ionicons 
-                name="arrow-back" 
-                size={24} 
-                color={isDark ? '#FFFFFF' : '#000000'} 
-              />
-            </TouchableOpacity>
+            <View style={tw`flex-row items-center`}>
+              {/* Bouton pour revenir à la liste */}
+              <TouchableOpacity 
+                onPress={() => router.push('/')} 
+                style={tw`mr-2`}
+              >
+                <Ionicons 
+                  name="albums-outline" 
+                  size={22} 
+                  color={isEditing ? 'white' : (isDark ? '#FFFFFF' : '#000000')} 
+                />
+              </TouchableOpacity>
+              
+              {/* Séparateur */}
+              <Text style={tw`text-gray-400 mx-1`}>|</Text>
+              
+              {/* Bouton retour/annuler */}
+              <TouchableOpacity 
+                onPress={() => {
+                  if (isEditing) {
+                    handleCancel();
+                  } else {
+                    router.back();
+                  }
+                }}
+              >
+                <Ionicons 
+                  name={isEditing ? "close-outline" : "arrow-back"} 
+                  size={24} 
+                  color={isEditing ? 'white' : (isDark ? '#FFFFFF' : '#000000')} 
+                />
+              </TouchableOpacity>
+            </View>
           ),
           headerRight: () => (
             <View style={tw`flex-row`}>
               {isEditing ? (
-                // Boutons pour le mode édition
-                <View style={tw`flex-row`}>
-                  <TouchableOpacity 
-                    onPress={handleCancel} 
-                    style={tw`mr-4 rounded-full p-2 bg-red-500 bg-opacity-20`}
-                  >
-                    <Ionicons name="close" size={20} color="#EF4444" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={handleSave} 
-                    disabled={isLoading}
-                    style={tw`rounded-full p-2 bg-blue-500 bg-opacity-20`}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#2563EB" />
-                    ) : (
-                      <Ionicons name="checkmark" size={20} color="#2563EB" />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                // Bouton pour le mode édition
+                <TouchableOpacity 
+                  onPress={handleSave} 
+                  disabled={isLoading}
+                  style={tw`rounded-full p-2 ${isEditing ? '' : 'bg-blue-500 bg-opacity-20'}`}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color={isEditing ? "white" : "#2563EB"} />
+                  ) : (
+                    <Ionicons 
+                      name="checkmark" 
+                      size={24} 
+                      color={isEditing ? "white" : "#2563EB"} 
+                    />
+                  )}
+                </TouchableOpacity>
               ) : (
                 // Boutons pour le mode lecture
                 <View style={tw`flex-row`}>
@@ -232,15 +266,21 @@ export default function NoteDetailScreen() {
       <ScrollView style={tw`flex-1 px-5 py-3`}>
         <Animated.View style={{ opacity: fadeAnim }}>
           {isEditing ? (
-            // Mode édition
+            // Mode édition - Design amélioré
             <>
+              {/* Bannière "MODIFICATION" */}
+              <View style={tw`bg-blue-600 rounded-lg py-2 px-4 mb-4 flex-row items-center justify-center shadow-sm`}>
+                <Ionicons name="create" size={18} color="white" style={tw`mr-2`} />
+                <Text style={tw`text-white font-bold text-center`}>MODIFICATION DE NOTE</Text>
+              </View>
+
               {/* Titre de la note */}
               <TextInput
                 style={tw.style(
-                  `text-2xl font-bold mb-5 px-3 py-3`,
+                  `text-2xl font-bold mb-5 px-4 py-3`,
                   isDark ? 'text-white' : 'text-black',
-                  isDark ? 'bg-gray-900' : 'bg-gray-100',
-                  'rounded-xl'
+                  isDark ? 'bg-gray-900' : 'bg-white',
+                  'rounded-xl shadow-sm border-l-4 border-blue-500'
                 )}
                 placeholder="Titre"
                 placeholderTextColor={isDark ? '#9CA3AF' : '#9CA3AF'}
@@ -251,10 +291,10 @@ export default function NoteDetailScreen() {
               {/* Contenu de la note */}
               <TextInput
                 style={tw.style(
-                  `text-base mb-5 px-3 py-3 min-h-40`,
+                  `text-base mb-5 px-4 py-3 min-h-40`,
                   isDark ? 'text-white' : 'text-black',
-                  isDark ? 'bg-gray-900' : 'bg-gray-100',
-                  'rounded-xl'
+                  isDark ? 'bg-gray-900' : 'bg-white',
+                  'rounded-xl shadow-sm border-l-4 border-blue-500'
                 )}
                 placeholder="Contenu de la note..."
                 placeholderTextColor={isDark ? '#9CA3AF' : '#9CA3AF'}
@@ -265,7 +305,7 @@ export default function NoteDetailScreen() {
               />
 
               {/* Sélection des catégories */}
-              <Text style={tw.style(`font-bold mb-3 text-lg`, isDark ? 'text-white' : 'text-black')}>
+              <Text style={tw.style(`font-bold mb-3 text-lg ml-1`, isDark ? 'text-white' : 'text-gray-800')}>
                 Catégories
               </Text>
               <View style={tw`flex-row flex-wrap mb-6`}>
@@ -278,7 +318,7 @@ export default function NoteDetailScreen() {
                         ? { backgroundColor: category.color }
                         : isDark
                         ? 'bg-gray-800 border border-gray-700'
-                        : 'bg-gray-200 border border-gray-300'
+                        : 'bg-white border border-gray-300'
                     )}
                     onPress={() => toggleCategory(category.id)}
                   >
@@ -293,7 +333,7 @@ export default function NoteDetailScreen() {
                       )}
                     >
                       {selectedCategories.includes(category.id) && (
-                        <Ionicons name="checkmark" size={14} color="white" />
+                        <Ionicons name="checkmark" size={14} color={selectedCategories.includes(category.id) ? "white" : "#3B82F6"} />
                       )}
                       {' '}{category.name}
                     </Text>
@@ -306,7 +346,7 @@ export default function NoteDetailScreen() {
                 <TouchableOpacity
                   style={tw.style(
                     `flex-1 mr-2 py-3 rounded-xl shadow-sm`,
-                    isDark ? 'bg-gray-800' : 'bg-gray-200'
+                    isDark ? 'bg-gray-800' : 'bg-white'
                   )}
                   onPress={handleCancel}
                 >
@@ -322,8 +362,8 @@ export default function NoteDetailScreen() {
                   style={tw.style(
                     `flex-1 ml-2 py-3 rounded-xl shadow-sm`,
                     isLoading 
-                      ? isDark ? 'bg-blue-800' : 'bg-blue-300'
-                      : isDark ? 'bg-blue-700' : 'bg-blue-500'
+                      ? 'bg-blue-400'
+                      : 'bg-blue-600'
                   )}
                   onPress={handleSave}
                   disabled={isLoading}
@@ -332,7 +372,7 @@ export default function NoteDetailScreen() {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={tw`text-center text-white font-bold`}>
-                      Enregistrer
+                      Enregistrer les modifications
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -341,73 +381,87 @@ export default function NoteDetailScreen() {
           ) : (
             // Mode lecture - design amélioré
             <>
-              {/* Date de modification */}
-              <View style={tw`mb-4 flex-row justify-between items-center`}>
-                <Text style={tw.style(
-                  `text-sm`,
-                  isDark ? 'text-gray-400' : 'text-gray-500'
-                )}>
-                  Dernière modification
-                </Text>
-                <View style={tw.style(
-                  `px-3 py-1 rounded-full`,
-                  isDark ? 'bg-gray-800' : 'bg-gray-200'
-                )}>
-                  <Text style={tw.style(
-                    `text-xs`,
-                    isDark ? 'text-gray-300' : 'text-gray-600'
-                  )}>
-                    Aujourd'hui
+              {/* Carte d'information */}
+              <View style={tw`bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-5`}>
+                {/* Bandeau supérieur avec date et catégories */}
+                <View style={tw`p-4 border-b border-gray-200 dark:border-gray-700 flex-row justify-between items-center`}>
+                  {/* Date de modification */}
+                  <View style={tw`flex-row items-center`}>
+                    <Ionicons name="time-outline" size={16} color={isDark ? "#9CA3AF" : "#6B7280"} style={tw`mr-1`} />
+                    <Text style={tw.style(
+                      `text-sm`,
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    )}>
+                      Dernière modification:
+                    </Text>
+                    <View style={tw.style(
+                      `ml-2 px-3 py-1 rounded-full`,
+                      isDark ? 'bg-gray-700' : 'bg-gray-100'
+                    )}>
+                      <Text style={tw.style(
+                        `text-xs font-medium`,
+                        isDark ? 'text-gray-300' : 'text-gray-600'
+                      )}>
+                        Aujourd'hui
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contenu principal */}
+                <View style={tw`p-4`}>
+                  {/* Titre de la note */}
+                  <Text
+                    style={tw.style(
+                      `text-2xl font-bold mb-4`,
+                      isDark ? 'text-white' : 'text-gray-900'
+                    )}
+                  >
+                    {title || 'Sans titre'}
+                  </Text>
+
+                  {/* Catégories */}
+                  {selectedCategories.length > 0 && (
+                    <View style={tw`flex-row flex-wrap mb-4`}>
+                      {selectedCategories.map(categoryId => (
+                        <View
+                          key={categoryId}
+                          style={tw.style(
+                            `mr-2 mb-2 px-3 py-1 rounded-full flex-row items-center`,
+                            { backgroundColor: getCategoryColor(categoryId) }
+                          )}
+                        >
+                          <Ionicons name="pricetag" size={12} color="white" style={tw`mr-1 opacity-70`} />
+                          <Text style={tw`text-xs font-medium text-white`}>
+                            {getCategoryName(categoryId)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Ligne séparatrice */}
+                  <View style={tw`border-b border-gray-200 dark:border-gray-700 my-2`} />
+
+                  {/* Contenu de la note */}
+                  <Text
+                    style={tw.style(
+                      `text-base leading-relaxed my-4`,
+                      isDark ? 'text-gray-300' : 'text-gray-700'
+                    )}
+                  >
+                    {content || 'Aucun contenu'}
                   </Text>
                 </View>
               </View>
 
-              {/* Titre de la note (mode lecture) */}
-              <Text
-                style={tw.style(
-                  `text-2xl font-bold mb-5`,
-                  isDark ? 'text-white' : 'text-black'
-                )}
-              >
-                {title}
-              </Text>
-
-              {/* Catégories */}
-              {selectedCategories.length > 0 && (
-                <View style={tw`flex-row flex-wrap mb-5`}>
-                  {selectedCategories.map(categoryId => (
-                    <View
-                      key={categoryId}
-                      style={tw.style(
-                        `mr-2 mb-2 px-3 py-1 rounded-full`,
-                        { backgroundColor: getCategoryColor(categoryId) }
-                      )}
-                    >
-                      <Text style={tw`text-xs font-medium text-white`}>
-                        {getCategoryName(categoryId)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Contenu de la note (mode lecture) */}
-              <Text
-                style={tw.style(
-                  `text-base leading-6 mb-8`,
-                  isDark ? 'text-gray-300' : 'text-gray-800'
-                )}
-              >
-                {content}
-              </Text>
-
               {/* Boutons d'actions */}
-              <View style={tw`flex-row justify-center space-x-3 mt-8 mb-10`}>
+              <View style={tw`flex-row justify-center space-x-4 mt-6 mb-10`}>
                 {/* Bouton de suppression */}
                 <TouchableOpacity
                   style={tw.style(
                     `flex-row items-center px-5 py-3 rounded-full shadow-md`,
-                    isDark ? 'bg-red-900' : 'bg-red-500'
+                    isDark ? 'bg-red-800' : 'bg-red-500'
                   )}
                   onPress={handleDelete}
                 >
@@ -421,7 +475,7 @@ export default function NoteDetailScreen() {
                 <TouchableOpacity
                   style={tw.style(
                     `flex-row items-center px-5 py-3 rounded-full shadow-md`,
-                    isDark ? 'bg-blue-600' : 'bg-blue-500'
+                    isDark ? 'bg-blue-700' : 'bg-blue-500'
                   )}
                   onPress={() => setIsEditing(true)}
                 >
@@ -437,4 +491,4 @@ export default function NoteDetailScreen() {
       </ScrollView>
     </View>
   );
-}
+} 

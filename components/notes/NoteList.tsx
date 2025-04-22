@@ -6,9 +6,7 @@ import {
   Text, 
   TouchableOpacity, 
   Alert,
-  TextInput,
   useColorScheme,
-  Animated,
   Pressable
 } from 'react-native';
 import { useNotes } from '@/contexts/NotesContext';
@@ -16,6 +14,7 @@ import NoteCard from './NoteCard';
 import { Ionicons } from '@expo/vector-icons';
 import tw from 'twrnc';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Composant pour le filtre par catégorie
 const CategoryFilter = ({ 
@@ -27,8 +26,8 @@ const CategoryFilter = ({
 }) => {
   const { categories } = useNotes();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
+  const { isDark } = useTheme();
+  
   // Gérer la sélection de catégorie
   const handleCategoryPress = (categoryId: number | null) => {
     // Cas spécial pour "Toutes" (-1)
@@ -48,13 +47,18 @@ const CategoryFilter = ({
     }
   };
 
+  // S'assurer que categories est un tableau valide
+  const validCategories = Array.isArray(categories) ? categories : [];
+
   return (
-    <View style={tw`mb-3`}>
+    <View style={tw`mb-3 mx-4`}>
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
-        data={[{ id: -1, name: 'Toutes', color: '#6B7280', user_id: 0 }, ...categories]}
-        keyExtractor={(item) => item.id.toString()}
+        data={[{ id: -1, name: 'Toutes', color: '#6B7280', user_id: 0 }, ...validCategories]}
+        keyExtractor={(item) => {
+          return item?.id !== undefined ? item.id.toString() : Math.random().toString(36).substring(2);
+        }}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={tw.style(
@@ -90,26 +94,31 @@ const CategoryFilter = ({
 const EnhancedNoteCard = ({ 
   note, 
   onDelete, 
-  onEdit 
+  onEdit,
+  onPress
 }: { 
   note: { 
     id: number; 
     title: string; 
     content: string; 
-    categories: { id: number; name: string; color: string }[] 
+    categories?: { id: number; name: string; color: string }[] 
   }; 
   onDelete: () => void; 
-  onEdit: () => void; 
+  onEdit: () => void;
+  onPress: () => void; 
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [showOptions, setShowOptions] = useState(false);
   
+  // S'assurer que categories est un tableau valide
+  const categories = Array.isArray(note.categories) ? note.categories : [];
+  
   // Détermine la couleur de la carte en fonction des catégories
   const getCardColor = () => {
-    if (note.categories && note.categories.length > 0) {
+    if (categories.length > 0 && categories[0] && categories[0].color) {
       return { 
-        borderLeftColor: note.categories[0].color,
+        borderLeftColor: categories[0].color,
         borderLeftWidth: 4
       };
     }
@@ -123,7 +132,7 @@ const EnhancedNoteCard = ({
         isDark ? 'bg-gray-800' : 'bg-white',
         getCardColor()
       )}
-      onPress={onEdit}
+      onPress={onPress}
       onLongPress={() => setShowOptions(!showOptions)}
     >
       <View style={tw`p-4`}>
@@ -173,22 +182,27 @@ const EnhancedNoteCard = ({
           {note.content || 'Aucun contenu'}
         </Text>
         
-        {/* Catégories en pastilles */}
-        {note.categories && note.categories.length > 0 ? (
+        {/* Catégories en pastilles - avec vérifications de sécurité */}
+        {categories.length > 0 ? (
           <View style={tw`flex-row flex-wrap`}>
-            {note.categories.map((category: { id: number; name: string; color: string }) => (
-              <View 
-                key={category.id}
-                style={tw.style(
-                  `mr-1 mb-1 px-2 py-1 rounded-full`,
-                  { backgroundColor: category.color }
-                )}
-              >
-                <Text style={tw`text-xs text-white`}>
-                  {category.name}
-                </Text>
-              </View>
-            ))}
+            {categories.map((category) => {
+              // Vérifier que la catégorie a un ID valide
+              if (!category || typeof category.id === 'undefined') return null;
+              
+              return (
+                <View 
+                  key={category.id}
+                  style={tw.style(
+                    `mr-1 mb-1 px-2 py-1 rounded-full`,
+                    { backgroundColor: category.color || '#6B7280' }
+                  )}
+                >
+                  <Text style={tw`text-xs text-white`}>
+                    {category.name || 'Catégorie'}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ) : null}
       </View>
@@ -196,22 +210,29 @@ const EnhancedNoteCard = ({
   );
 };
 
-export default function NoteList() {
+export default function NoteList({ searchQuery = '' }: { searchQuery?: string }) {
   const { notes, isLoading, fetchNotes, deleteNote, searchNotes } = useNotes();
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
-  const [filteredNotes, setFilteredNotes] = useState(notes);
+  type Note = {
+    id: number;
+    title: string;
+    content: string;
+    categories?: { id: number; name: string; color: string }[];
+  };
+
+  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
 
   // Fonction pour filtrer les notes selon les catégories sélectionnées
   const filterByCategories = (notesList: any[], categoryIds: number[]) => {
     if (!categoryIds.length) return notesList;
     
     return notesList.filter(note =>
-      note.categories && Array.isArray(note.categories) &&
-      note.categories.some((category: any) => categoryIds.includes(category.id))
+      note && note.categories && Array.isArray(note.categories) &&
+      note.categories.some((category: any) => 
+        category && categoryIds.includes(category.id)
+      )
     );
   };
 
@@ -221,14 +242,21 @@ export default function NoteList() {
     
     const searchTerm = query.toLowerCase().trim();
     return notesList.filter(note =>
-      note.title.toLowerCase().includes(searchTerm) ||
-      note.content.toLowerCase().includes(searchTerm)
+      note && 
+      ((note.title && note.title.toLowerCase().includes(searchTerm)) ||
+      (note.content && note.content.toLowerCase().includes(searchTerm)))
     );
   };
 
   // Mettre à jour les filtres
   useEffect(() => {
-    let result = [...notes];
+    // S'assurer que notes est un tableau valide
+    let validNotes = Array.isArray(notes) ? [...notes] : [];
+    
+    // Filtre supplémentaire pour enlever les notes sans ID
+    validNotes = validNotes.filter(note => note && typeof note.id !== 'undefined');
+    
+    let result = validNotes;
     
     // Appliquer filtre par catégories
     if (selectedCategoryIds.length > 0) {
@@ -261,40 +289,20 @@ export default function NoteList() {
     );
   };
 
+  // Pour naviguer vers le mode lecture (visualisation)
+  const handleViewNote = (noteId: number) => {
+    router.push(`/notes/${noteId}`); 
+  };
+
   // Naviguer vers l'écran d'édition
   const handleEditNote = (noteId: number) => {
-    router.push(`/notes/${noteId}`);
+    router.push(`/notes/${noteId}?edit=true`);
   };
 
   // Si aucune note, afficher un message
-  if (filteredNotes.length === 0) {
+  if (!filteredNotes || filteredNotes.length === 0) {
     return (
       <View style={tw.style(`flex-1`, isDark ? 'bg-black' : 'bg-gray-100')}>
-        {/* Barre de recherche */}
-        <View style={tw.style(
-          `flex-row items-center mx-4 my-3 px-3 py-2 rounded-lg`,
-          isDark ? 'bg-gray-800' : 'bg-white'
-        )}>
-          <Ionicons 
-            name="search-outline" 
-            size={20} 
-            color={isDark ? '#9CA3AF' : '#6B7280'} 
-            style={tw`mr-2`}
-          />
-          <TextInput
-            style={tw.style(`flex-1`, isDark ? 'text-white' : 'text-gray-800')}
-            placeholder="Rechercher..."
-            placeholderTextColor={isDark ? '#9CA3AF' : '#9CA3AF'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
         {/* Filtre par catégorie */}
         <CategoryFilter 
           selectedCategoryIds={selectedCategoryIds}
@@ -326,31 +334,6 @@ export default function NoteList() {
 
   return (
     <View style={tw.style(`flex-1 relative`, isDark ? 'bg-black' : 'bg-gray-100')}>
-      {/* Barre de recherche */}
-      <View style={tw.style(
-        `flex-row items-center mx-4 my-3 px-3 py-2 rounded-lg`,
-        isDark ? 'bg-gray-800' : 'bg-white'
-      )}>
-        <Ionicons 
-          name="search-outline" 
-          size={20} 
-          color={isDark ? '#9CA3AF' : '#6B7280'} 
-          style={tw`mr-2`}
-        />
-        <TextInput
-          style={tw.style(`flex-1`, isDark ? 'text-white' : 'text-gray-800')}
-          placeholder="Rechercher..."
-          placeholderTextColor={isDark ? '#9CA3AF' : '#9CA3AF'}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
       {/* Filtre par catégorie */}
       <CategoryFilter 
         selectedCategoryIds={selectedCategoryIds}
@@ -359,15 +342,34 @@ export default function NoteList() {
 
       {/* Liste des notes avec le nouveau composant amélioré */}
       <FlatList
-        data={filteredNotes}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <EnhancedNoteCard 
-            note={item}
-            onDelete={() => handleDeleteNote(item.id)} 
-            onEdit={() => handleEditNote(item.id)}
-          />
-        )}
+        data={filteredNotes as { id: number; [key: string]: any }[]}
+        keyExtractor={(item) => {
+          return item && item.id !== undefined ? item.id.toString() : Math.random().toString(36).substring(2);
+        }}
+        renderItem={({ item }) => {
+          // Vérification de sécurité pour s'assurer que l'item a un ID
+          if (!item || typeof item.id === 'undefined') {
+            console.warn("Note sans ID détectée, ignorée dans le rendu");
+            return null;
+          }
+          
+          // S'assurer que item.categories est un tableau
+          const note = {
+            ...item,
+            title: item.title || 'Sans titre',
+            content: item.content || 'Aucun contenu',
+            categories: Array.isArray(item.categories) ? item.categories : []
+          };
+          
+          return (
+            <EnhancedNoteCard 
+              note={note}
+              onDelete={() => handleDeleteNote(note.id)} 
+              onEdit={() => handleEditNote(note.id)}
+              onPress={() => handleViewNote(note.id)}
+            />
+          );
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

@@ -1,14 +1,16 @@
-import { Stack } from "expo-router";
-import { useEffect } from "react";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { NotesProvider } from "@/contexts/NotesContext";
+import { Slot } from 'expo-router';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { NotesProvider } from '@/contexts/NotesContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <NotesProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-      </NotesProvider>
+      <ThemeProvider>
+        <NotesProvider>
+          <Slot />
+        </NotesProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

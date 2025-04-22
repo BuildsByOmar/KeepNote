@@ -11,22 +11,22 @@ import {
 import tw from "twrnc";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { useAuth } from "../_layout";
+import { useAuth } from "@/contexts/AuthContext"; // Correction de l'import
 import {
   CameraView,
   useCameraPermissions,
   BarcodeScanningResult,
 } from "expo-camera";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function QRScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState("");
-  const { signIn } = useAuth();
+  const { signIn } = useAuth(); // Utilise maintenant le hook importé correctement
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
-  const theme = useColorScheme();
-  const isDark = theme === "dark";
+  const { isDark } = useTheme(); // Utiliser le context de thème pour la cohérence
 
   const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned || loading) return;
@@ -158,7 +158,7 @@ export default function QRScanScreen() {
           )}
 
           {debug && (
-            <View style={tw`bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mt-4`}>
+            <View style={tw`${isDark ? "bg-gray-800" : "bg-gray-100"} p-4 rounded-lg mt-4`}>
               <Text style={tw`font-bold mb-1 ${isDark ? "text-white" : "text-black"}`}>🛠️ Débogage :</Text>
               <Text style={tw`font-mono text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                 {debug}

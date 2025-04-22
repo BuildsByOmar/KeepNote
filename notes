@@ -1,6 +1,1 @@
-- alert erreur lors de la création de la note (la note n'a pas d'id) mais elle se créé sans attribution d'un catégorie
-- erreur lors de la création de la modif d'une note (cannot read property toSring of undefined) mais elle est modif sans attribution d'un catégorie
-- add : bouton de retour à créé lorsque on lis une note
-- add : toast lorsque une note est ajouté ou supprimé ou modfié
-- add : refraichissement automatique lors des gestion des notes 
-- setting : supprimer requets api, refaire mode sombre ou claire
+notesContext - themeContexte - settings - layout (app)

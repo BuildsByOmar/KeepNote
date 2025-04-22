@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
 import { useRouter, useSegments } from "expo-router";
 import {
   createContext,
@@ -7,7 +7,11 @@ import {
   useEffect,
   useState,
 } from "react";
-import { StyleSheet, View, Text } from "react-native";
+import { StyleSheet, View, Text, ActivityIndicator } from "react-native";
+import { useTheme } from "./ThemeContext";
+
+// URL de l'API
+const API_URL = "https://keep.kevindupas.com/api";
 
 type User = {
   id: number;
@@ -33,12 +37,17 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+// Compteur pour les tentatives de connexion échouées
+let failedTokenValidations = 0;
+const MAX_VALIDATION_ATTEMPTS = 3;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const segments = useSegments();
+  const { isDark } = useTheme();
 
   const checkAndRedirect = useCallback(() => {
     const inAuthGroup = segments[0] === "auth";
@@ -54,38 +63,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadToken = async () => {
       try {
-        const token = await AsyncStorage.getItem("userToken");
-        const userData = await AsyncStorage.getItem("userData");
+        // Utilisation de SecureStore au lieu d'AsyncStorage
+        const token = await SecureStore.getItemAsync("userToken");
+        const userData = await SecureStore.getItemAsync("userData");
 
         if (token) {
-          // Vérifier la validité du token en effectuant une requête
-          const response = await fetch("YOUR_API_URL/validate-token", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({ token }),
-          });
+          // Vérifier la validité du token en effectuant une requête à un endpoint réel
+          try {
+            const response = await fetch(`${API_URL}/user`, {
+              method: "GET",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Accept": "application/json",
+              },
+            });
 
-          if (response.ok) {
-            setUserToken(token);
-            if (userData) {
-              const userInfo = JSON.parse(userData);
-              setUser(userInfo);
+            if (response.ok) {
+              // Le token est valide
+              failedTokenValidations = 0; // Réinitialiser le compteur
+              setUserToken(token);
+              if (userData) {
+                const userInfo = JSON.parse(userData);
+                setUser(userInfo);
+              }
+            } else {
+              // Le token est invalide (401 unauthorized ou autre erreur)
+              failedTokenValidations++;
+              console.log("Token invalide, déconnexion...");
+              await signOut();
             }
-          } else {
-            await signOut(); // Si le token est invalide, déconnecter l'utilisateur
+          } catch (error) {
+            // Erreur réseau - garder la session en mode hors ligne
+            // Mais on limite le nombre de tentatives échouées
+            failedTokenValidations++;
+            console.log("Erreur réseau lors de la validation du token");
+            
+            if (failedTokenValidations <= MAX_VALIDATION_ATTEMPTS) {
+              if (userData) {
+                setUserToken(token);
+                setUser(JSON.parse(userData));
+              }
+            } else {
+              await signOut(); // Par sécurité, on déconnecte après trop d'échecs
+            }
           }
         } else {
           setUserToken(null);
           setUser(null);
         }
       } catch (error) {
-        console.error(error);
-        await signOut(); // En cas d'erreur, déconnecter l'utilisateur
+        console.error("Erreur lors du chargement du token");
+        await signOut();
       } finally {
-        setIsLoading(false); // Une fois le chargement terminé, mettre à jour l'état
+        setIsLoading(false);
       }
     };
 
@@ -98,23 +128,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (token: string, userData: User) => {
     try {
-      await AsyncStorage.setItem("userToken", token);
-      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+      // Stocker de manière sécurisée avec SecureStore
+      await SecureStore.setItemAsync("userToken", token);
+      await SecureStore.setItemAsync("userData", JSON.stringify(userData));
+      
+      // Définir l'expiration du token (24h par défaut)
+      const expiryTime = new Date().getTime() + (24 * 60 * 60 * 1000);
+      await SecureStore.setItemAsync("tokenExpiry", expiryTime.toString());
+      
+      failedTokenValidations = 0; // Réinitialiser le compteur à la connexion
       setUserToken(token);
       setUser(userData);
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error);
+      console.error("Erreur lors de la connexion");
     }
   };
 
   const signOut = async () => {
     try {
-      await AsyncStorage.removeItem("userToken");
-      await AsyncStorage.removeItem("userData");
+      // Supprimer de manière sécurisée avec SecureStore
+      await SecureStore.deleteItemAsync("userToken");
+      await SecureStore.deleteItemAsync("userData");
+      await SecureStore.deleteItemAsync("tokenExpiry");
+      
       setUserToken(null);
       setUser(null);
+      failedTokenValidations = 0;
     } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error);
+      console.error("Erreur lors de la déconnexion");
     }
   };
 
@@ -129,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {isLoading ? (
-        <LoadingScreen /> // Écran de chargement pendant que l'application récupère les informations
+        <LoadingScreen isDark={isDark} />
       ) : (
         children
       )}
@@ -138,10 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 // Composant pour afficher l'écran de chargement
-function LoadingScreen() {
+function LoadingScreen({ isDark }: { isDark: boolean }) {
   return (
-    <View style={styles.loadingContainer}>
-      <Text>Chargement...</Text>
+    <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#000' : '#fff' }]}>
+      <ActivityIndicator size="large" color="#2563eb" />
+      <Text style={{ marginTop: 10, color: isDark ? '#fff' : '#000' }}>Chargement...</Text>
     </View>
   );
 }
