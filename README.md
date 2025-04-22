@@ -1,50 +1,173 @@
-# Welcome to your Expo app 👋
+# KeepNote - Application Mobile de Gestion de Notes
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Description
+KeepNote est une application mobile développée avec React Native et Expo, inspirée de Google Keep. Elle permet aux utilisateurs de créer, organiser et gérer leurs notes et tâches, avec une interface intuitive et des fonctionnalités de personnalisation.
 
-## Get started
+## Fonctionnalités Principales
 
-1. Install dependencies
+### Gestion des Notes
+- Création, lecture, modification et suppression de notes
+- Recherche textuelle dans les notes
+- Organisation par catégories avec code couleur
+- Interface utilisateur intuitive et responsive
 
-   ```bash
-   npm install
-   ```
+### Authentification et Sécurité
+- Authentification par token JWT
+- Connexion via email/mot de passe ou scan de QR code
+- Stockage sécurisé des données sensibles
+- Protection contre les attaques courantes (XSS, CSRF, injections)
 
-2. Start the app
+### Interface Utilisateur
+- Thème personnalisable (clair/sombre/système)
+- Filtrage par catégories
+- Affichage en liste avec design cards
+- Indicateurs multicolores pour notes avec plusieurs catégories
 
-   ```bash
-    npx expo start
-   ```
+### Synchronisation
+- Synchronisation automatique en arrière-plan (toutes les 60 secondes)
+- Synchronisation manuelle à la demande
+- Gestion robuste des erreurs de synchronisation
+- Mode hors ligne pour l'accès aux notes sans connexion
 
-In the output, you'll find options to open the app in a
+## Structure du Projet
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+/projet-keepnote
+├── /app                  # Pages principales de l'application (Expo Router)
+│   ├── index.tsx         # Écran principal avec liste des notes
+│   ├── settings.tsx      # Paramètres de l'application
+│   ├── /notes            # Gestion des notes
+│   │   ├── [id].tsx      # Détail et édition d'une note
+│   │   └── create.tsx    # Création d'une nouvelle note
+│   └── /(auth)           # Routes d'authentification
+│       ├── login.tsx     # Écran de connexion
+│       └── qr-scan.tsx   # Scan de QR code pour connexion
+├── /components           # Composants réutilisables
+│   └── /notes            # Composants liés aux notes
+│       └── NoteList.tsx  # Liste des notes avec filtres
+├── /contexts             # Gestionnaires d'état (Context API)
+│   ├── AuthContext.tsx   # Gestion de l'authentification
+│   ├── NotesContext.tsx  # Gestion des notes et catégories
+│   └── ThemeContext.tsx  # Gestion du thème de l'application
+└── /utils                # Utilitaires
+    └── SecurityUtils.ts  # Fonctions de sécurité
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Technologies Utilisées
 
-## Learn more
+- **Frontend** : React Native, Expo, Expo Router
+- **État** : React Context API
+- **Styling** : Tailwind CSS (via twrnc)
+- **Authentification** : JWT (JSON Web Tokens)
+- **Stockage local** : AsyncStorage, SecureStore
+- **Sécurité** : Validation des entrées, protection XSS, stockage sécurisé
 
-To learn more about developing your project with Expo, look at the following resources:
+## Améliorations Récentes
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Version 2.0 (Avril 2025)
 
-## Join the community
+1. **Amélioration de l'interface utilisateur**
+   - Design épuré et moderne
+   - Animations de transition
+   - Indicateurs multicolores pour notes avec plusieurs catégories
 
-Join our community of developers creating universal apps.
+2. **Gestion du thème**
+   - Système personnalisable (clair/sombre/système)
+   - Persistance des préférences via SecureStore
+   - Application cohérente dans toute l'application
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. **Optimisation des performances**
+   - Réduction des re-rendus inutiles
+   - Mise en cache des données
+   - Temps de chargement amélioré
+
+4. **Sécurité renforcée**
+   - Migration d'AsyncStorage vers SecureStore pour les données sensibles
+   - Validation des entrées utilisateur
+   - Protection contre les attaques XSS et par force brute
+
+### Version 1.5 (Février 2025)
+
+1. **Synchronisation automatique**
+   - Synchronisation périodique toutes les 60 secondes
+   - Option de désactivation par l'utilisateur
+   - Gestion des conflits améliorée
+
+2. **Gestion des catégories**
+   - Stockage local des associations note-catégories
+   - Solution robuste pour l'erreur "item.id is undefined"
+   - Interface de sélection des catégories améliorée
+
+3. **Navigation avancée**
+   - Navigation directe entre création, consultation et édition
+   - Boutons de retour intelligents
+   - Historique de navigation préservé
+
+## Installation et Configuration
+
+### Prérequis
+- Node.js 16+
+- npm ou yarn
+- Expo CLI
+- Compte Expo pour les builds
+
+### Installation
+1. Cloner le dépôt
+   ```bash
+   git clone https://github.com/yourusername/keepnote.git
+   cd keepnote
+   ```
+
+2. Installer les dépendances
+   ```bash
+   npm install
+   # ou
+   yarn install
+   ```
+
+3. Démarrer le serveur de développement
+   ```bash
+   npx expo start
+   ```
+
+4. Scanner le QR code avec l'application Expo Go sur votre appareil
+
+### Configuration de l'API
+L'application est configurée pour communiquer avec l'API à l'adresse suivante :
+```
+https://keep.kevindupas.com/api
+```
+
+## Bonnes Pratiques de Sécurité
+
+L'application implémente plusieurs mesures de sécurité conformes aux recommandations OWASP Mobile Top 10 :
+
+1. **Stockage sécurisé des données**
+   - Utilisation d'Expo SecureStore pour les tokens et données sensibles
+   - Aucune donnée critique n'est stockée dans AsyncStorage non chiffré
+
+2. **Authentification sécurisée**
+   - Tokens JWT avec expiration
+   - Protection contre les tentatives multiples de connexion
+   - Déconnexion complète (suppression des tokens et données)
+
+3. **Validation des entrées**
+   - Sanitisation des entrées utilisateur
+   - Validation des formats (email, ID numériques, etc.)
+   - Protection contre les injections et attaques XSS
+
+4. **Gestion sécurisée des erreurs**
+   - Messages d'erreur génériques sans information sensible
+   - Gestion des erreurs d'API sans exposition de détails techniques
+   - Logging minimal des informations sensibles
+
+## Licence
+Ce projet est sous licence MIT.
+
+## Auteur
+ BuildsByOmar - Développement principal
+
+## Remerciements
+- Google Keep pour l'inspiration
+- L'équipe Expo pour les excellents outils
+- L'équipe React Native pour le framework
