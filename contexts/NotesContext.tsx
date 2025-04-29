@@ -84,7 +84,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const { userToken } = useAuth();
   
   // Référence pour le timer de synchronisation automatique
-  const syncTimerRef = useRef<number | null>(null);
+  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Charger les préférences de synchronisation automatique
   useEffect(() => {
